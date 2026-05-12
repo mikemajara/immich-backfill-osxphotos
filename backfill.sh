@@ -172,35 +172,38 @@ run_osxphotos_export() {
   local uuid_file="$2"
   local report="$3"
   local export_log="$4"
-  local dry=()
-  [[ "$DRY_RUN" == "1" ]] && dry=(--dry-run)
+  # Build argv in an array so we never expand an empty "${dry[@]}" under set -u.
+  local -a cmd=(
+    osxphotos export "$batch_dir"
+    --library "$PHOTOS_LIBRARY"
+    --uuid-from-file "$uuid_file"
+    --skip-edited
+    --sidecar XMP
+    --touch-file
+    --directory "{created.year}/{created.mm}"
+    --download-missing
+    --retry 3
+    --report "$report"
+    --update
+  )
+  [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+  cmd+=(--verbose)
 
-  osxphotos export "$batch_dir" \
-    --library "$PHOTOS_LIBRARY" \
-    --uuid-from-file "$uuid_file" \
-    --skip-edited \
-    --sidecar XMP \
-    --touch-file \
-    --directory "{created.year}/{created.mm}" \
-    --download-missing \
-    --retry 3 \
-    --report "$report" \
-    --update \
-    "${dry[@]}" \
-    --verbose | tee "$export_log"
+  "${cmd[@]}" | tee "$export_log"
 }
 
 run_immich_upload() {
   local batch_dir="$1"
   local upload_log="$2"
-  local dry=()
-  [[ "$DRY_RUN" == "1" ]] && dry=(--dry-run)
+  local -a cmd=(
+    immich upload
+    --recursive
+    --concurrency "$CONCURRENCY"
+  )
+  [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+  cmd+=("$batch_dir")
 
-  immich upload \
-    --recursive \
-    --concurrency "$CONCURRENCY" \
-    "${dry[@]}" \
-    "$batch_dir" | tee "$upload_log"
+  "${cmd[@]}" | tee "$upload_log"
 }
 
 # =========================
