@@ -1,5 +1,7 @@
 # Immich backfill from Apple Photos (macOS)
 
+**What this is:** A small macOS script for people who use **Immich** but still keep their master library in **Apple Photos**. You pick a **date range**; it exports photos (and XMP sidecars) with **osxphotos** in **batches**, then **uploads each batch to Immich** with the Immich CLI—so you can migrate or catch up history without one giant export that stalls Photos.
+
 Export originals from the **Photos** library in date range chunks, then upload them with the **Immich CLI**. Chunking limits how many assets each `osxphotos export` touches, which helps avoid AppleScript timeouts on large months or under heavy load.
 
 ## Prerequisites
