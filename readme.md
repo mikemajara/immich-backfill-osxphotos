@@ -66,6 +66,6 @@ Defaults assume this project lives at `$HOME/projects/immich-backfill`.
 
 1. Query Photos for all UUIDs in the date range.
 2. Split that list into chunks of `BATCH_SIZE`.
-3. For each chunk: export to staging → upload staging to Immich → remove staging → optionally merge into `export/archive/`.
+3. For each chunk: export to staging → **uppercase file extensions** in staging → upload staging to Immich → remove staging → optionally merge into `export/archive/`.
 
 This avoids uploading the same files again on the next chunk, because each upload targets only the current staging directory.

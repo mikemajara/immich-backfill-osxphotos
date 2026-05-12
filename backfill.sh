@@ -27,6 +27,10 @@ set -euo pipefail
 #   BATCH_SIZE            250  (overridden by 3rd argument if present)
 #   DRY_RUN               0
 #   KEEP_EXPORTED_BATCHES 1
+#
+# After each export, file extensions in staging are uppercased (e.g. .jpg → .JPG)
+# before upload so Immich sees normalized names. Uses a two-step rename on
+# case-insensitive volumes when only the extension case changes.
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
   echo "Usage: $0 START_DATE END_DATE [BATCH_SIZE]"
@@ -192,6 +196,39 @@ run_osxphotos_export() {
   "${cmd[@]}" | tee "$export_log"
 }
 
+# Uppercase the final extension of every file under root (e.g. foo.bar.jpg → foo.bar.JPG).
+# On case-insensitive filesystems, mv foo.jpg foo.JPG needs an intermediate name.
+uppercase_extensions_in_tree() {
+  local root="$1"
+  [[ -d "$root" ]] || return 0
+  local path dir base name ext upper_ext new_path lpath lnew tmp
+  while IFS= read -r path; do
+    [[ -f "$path" ]] || continue
+    base="$(basename "$path")"
+    [[ "$base" == *.* ]] || continue
+    name="${base%.*}"
+    [[ -n "$name" ]] || continue
+    ext="${base##*.}"
+    upper_ext="$(printf '%s' "$ext" | tr '[:lower:]' '[:upper:]')"
+    [[ "$ext" != "$upper_ext" ]] || continue
+    dir="$(dirname "$path")"
+    new_path="$dir/$name.$upper_ext"
+    lpath="$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')"
+    lnew="$(printf '%s' "$new_path" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$lpath" == "$lnew" ]]; then
+      # Same path modulo case (common on case-insensitive APFS): two-step rename.
+      tmp="${path}.__ext_upper__$$"
+      mv "$path" "$tmp"
+      mv "$tmp" "$new_path"
+    elif [[ -e "$new_path" ]]; then
+      echo "WARN: skipping extension rename, target exists: $new_path" >&2
+      continue
+    else
+      mv "$path" "$new_path"
+    fi
+  done < <(find "$root" -type f)
+}
+
 run_immich_upload() {
   local batch_dir="$1"
   local upload_log="$2"
@@ -266,6 +303,13 @@ for chunk_file in "${sorted_chunks[@]}"; do
     echo "Exporting from Apple Photos..."
   fi
   run_osxphotos_export "$staging_dir" "$chunk_file" "$report" "$export_log"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "DRY RUN: skip extension normalization (no staging changes)"
+  else
+    echo "Normalizing extensions to uppercase before upload..."
+    uppercase_extensions_in_tree "$staging_dir"
+  fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "DRY RUN: Immich upload"
