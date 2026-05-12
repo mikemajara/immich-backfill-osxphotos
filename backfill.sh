@@ -181,7 +181,7 @@ run_osxphotos_export() {
     osxphotos export "$batch_dir"
     --library "$PHOTOS_LIBRARY"
     --uuid-from-file "$uuid_file"
-    --skip-edited
+    --skip-original-if-edited
     --sidecar XMP
     --touch-file
     --directory "{created.year}/{created.mm}"
